@@ -27,20 +27,20 @@ variable "service_role" {
   default     = "agent"
 }
 
-#variable "acct_level_resources_s3_bucket" {
- # description = "Account level S3 remote state bucket name"
- # default     = "demos3bucket"
-#}
+variable "acct_level_resources_s3_bucket" {
+  description = "Account level S3 remote state bucket name"
+  default     = "demos3bucket"
+}
 
-#variable "acct_level_resources_s3_key" {
- # description = "Account level S3 remote state S3 key path"
-  #default     = "/usr/bin/s3"
-#}
+variable "acct_level_resources_s3_key" {
+  description = "Account level S3 remote state S3 key path"
+  default     = "/usr/bin/s3"
+}
 
-#variable "acct_level_resources_region" {
-#  description = "Account level remote state region"
-#  default     = "us-east-1"
-#}
+variable "acct_level_resources_region" {
+  description = "Account level remote state region"
+  default     = "us-east-1"
+}
 
 ######################################
 # Codebuild
