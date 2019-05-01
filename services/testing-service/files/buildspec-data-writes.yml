@@ -1,0 +1,20 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Entered the pre_build phase...
+      - pip install awscli --upgrade --user
+      - echo `aws --version`
+      - sudo apt-get update
+      - sudo apt-get install jq
+  build:
+    commands:
+      - cat imagedefinitions.json
+      - jq '.[].imageUri' imagedefinitions.json >> uri.txt
+      - cat uri.txt
+      - container=`sed '1q;d' uri.txt`
+      - echo "$container"
+      - aws ssm put-parameter --name ${current_deployed_param} --type "String" --value "$container" --overwrite
+    artifacts:
+      files: uri.txt

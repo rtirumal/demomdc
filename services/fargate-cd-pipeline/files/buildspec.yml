@@ -1,0 +1,37 @@
+############
+# EXAMPLE buildspec.yml for application image
+############
+# - REPLACE the REPOSITORY_URI value
+#   (012345678910.dkr.ecr.us-east-1.amazonaws.com/hello-world) 
+#   with your Amazon ECR repository URI (without any image tag) for your Docker image. 
+# - Replace hello-world with the container name in your 
+#   service’s task definition that references your Docker image.
+############
+
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - $(aws ecr get-login --region ${aws_region} --no-include-email)
+      - REPOSITORY_URI=${repo_uri} # 981263594894.dkr.ecr.us-east-1.amazonaws.com/gh-fat-ce-prod
+      - NAME=${name}
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build --build-arg endpoint_url=${endpoint_url} --build-arg app_id=${name} -t $REPOSITORY_URI:latest .
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - printf '[{"name":"${name}","imageUri":"${repo_uri}:latest"}]' > imagedefinitions.json      
+artifacts:
+    files: imagedefinitions.json

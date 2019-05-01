@@ -1,0 +1,173 @@
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ADD AN AMAZON EC2 CONTAINER REGISTRY REPO FOR EACH MICROSERVICE
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# ---------------------------------------------------------------------------------------------------------------------
+# CONFIGURE OUR AWS CONNECTION
+# ---------------------------------------------------------------------------------------------------------------------
+
+provider "aws" {
+  # The AWS region in which all resources will be created
+  region = "${var.aws_region}"
+
+  # Only these AWS Account IDs may be operated on by this template
+  allowed_account_ids = ["${var.aws_account_id}"]
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# CONFIGURE REMOTE STATE STORAGE
+# ---------------------------------------------------------------------------------------------------------------------
+
+terraform {
+  # The configuration for this backend will be filled in by Terragrunt
+
+  backend "s3" {}
+
+  # Only allow this Terraform version. Note that if you upgrade to a newer version, Terraform won't allow you to use an
+  # older version, so when you upgrade, you should upgrade everyone on your team and your CI servers all at once.
+  required_version = "= 0.11.8"
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# CREATE ECR REPOS
+# Each Docker image that we run in our ECS Clusters will need an ECR Repo where its Docker Image is stored.
+# ---------------------------------------------------------------------------------------------------------------------
+
+resource "aws_ecr_repository" "repos" {
+  count = "${length(var.repo_names)}"
+  name  = "${element(var.repo_names, count.index)}"
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# GIVE EXTERNAL ACCOUNTS ABILITY TO PUSH AND PULL IMAGES
+# ---------------------------------------------------------------------------------------------------------------------
+
+resource "aws_ecr_repository_policy" "external_account_access" {
+  count      = "${(length(var.external_account_ids_with_read_access) > 0 || length(var.external_account_ids_with_write_access) > 0) ? length(var.repo_names) : 0}"
+  repository = "${element(aws_ecr_repository.repos.*.name, count.index)}"
+  policy     = "${data.aws_iam_policy_document.external_account_access.json}"
+}
+
+data "aws_iam_policy_document" "external_account_access" {
+  count = "${(length(var.external_account_ids_with_read_access) > 0 || length(var.external_account_ids_with_write_access) > 0) ? 1 : 0}"
+
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["${formatlist("arn:aws:iam::%s:root", var.external_account_ids_with_read_access)}"]
+    }
+
+    actions = [
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecr:BatchCheckLayerAvailability",
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["${formatlist("arn:aws:iam::%s:root", var.external_account_ids_with_write_access)}"]
+    }
+
+    actions = [
+      "ecr:GetAuthorizationToken",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:GetRepositoryPolicy",
+      "ecr:DescribeRepositories",
+      "ecr:ListImages",
+      "ecr:DescribeImages",
+      "ecr:BatchGetImage",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload",
+      "ecr:PutImage",
+    ]
+  }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# EQP ECR POLICY FOR PUSH PULL
+# ---------------------------------------------------------------------------------------------------------------------
+
+resource "aws_ecr_repository_policy" "eqp" {
+  // This policy is applied to all eqp repos created. 
+  count      = "${length(var.repo_names)}"
+  repository = "${element(aws_ecr_repository.repos.*.name, count.index)}"
+  policy     = "${data.aws_iam_policy_document.eqp.json}"
+}
+
+data "aws_iam_policy_document" "eqp" {
+  statement {
+    sid    = "AllowPushPull"
+    effect = "Allow"
+
+    principals {
+      type = "AWS"
+
+      identifiers = ["arn:aws:iam::981263594894:role/eqp-iam-role",
+        "arn:aws:iam::981263594894:role/toolm-iam-role",
+      ]
+    }
+
+    actions = [
+      "ecr:GetAuthorizationToken",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:GetRepositoryPolicy",
+      "ecr:DescribeRepositories",
+      "ecr:ListImages",
+      "ecr:DescribeImages",
+      "ecr:BatchGetImage",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload",
+      "ecr:PutImage",
+    ]
+  }
+
+  statement {
+    sid    = "AllowPull"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["codebuild.amazonaws.com"]
+    }
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::981263594894:role/eqp-codebuild-role"]
+    }
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::756760148189:role/devmplace_pr_jenkins_inst_role"]
+    }
+
+    actions = [
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecr:BatchCheckLayerAvailability",
+    ]
+  }
+
+  statement {
+    sid    = "AllowGetToken"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::756760148189:role/devmplace_pr_jenkins_inst_role"]
+    }
+
+    actions = [
+      "ecr:GetAuthorizationToken",
+    ]
+  }
+}
