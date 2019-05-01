@@ -24,17 +24,17 @@ variable "service_name" {
 
 variable "service_role" {
   description = "Service Role"
-  default     = "agent"
+  default     = "arn:aws:iam::995614698185:role/CodeBuild"
 }
 
 variable "acct_level_resources_s3_bucket" {
   description = "Account level S3 remote state bucket name"
-  default     = "demos3bucket"
+  default     = "service-mdc-s3"
 }
 
 variable "acct_level_resources_s3_key" {
   description = "Account level S3 remote state S3 key path"
-  default     = "/usr/bin/s3"
+  default     = "./terraform/terraform.tfstate"
 }
 
 variable "acct_level_resources_region" {
