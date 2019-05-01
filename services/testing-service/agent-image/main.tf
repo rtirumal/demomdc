@@ -28,6 +28,5 @@ backend = "s3"
 config {
   region = "${var.acct_level_resources_region}"
   bucket = "${var.acct_level_resources_s3_bucket}"
-  key    = "${var.acct_level_resources_s3_key}/terraform.tfstate"
-  }
+  key    = "${var.acct_level_resources_s3_key}"
 }
