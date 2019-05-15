@@ -1,1 +1,0 @@
-# This folder contains a static website example used for testing the module
