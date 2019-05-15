@@ -1,7 +1,0 @@
-version: 0.0
-os: linux
-hooks:
-  BeforeInstall:
-     - location: scripts/install_dependencies.sh
-       timeout: 900
-       runas: root
