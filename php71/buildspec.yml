@@ -1,0 +1,23 @@
+version: 0.2 
+phases: 
+  pre_build: 
+    commands: 
+      - aws --version 
+      - $(aws ecr get-login --region us-east-1 --no-include-email) 
+      - REPOSITORY_URI=${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com/${ecr_repo_name}
+      - aws ssm get-parameter --region us-east-1 --name GITHUB_TOKEN --with-decryption > /tmp/parameter.json
+      - GITHUB_TOKEN=`jq '.Parameter.Value' /tmp/parameter.json | sed 's/"//g'`
+      - rm -f /tmp/parameter.json
+      - git clone -b ${github_branch} https://$GITHUB_TOKEN:x-oauth-basic@github.com/${github_org}/${github_repo}
+      - cd new-mdcrepo/php/php71
+  build: 
+    commands: 
+      - echo Build started on `date` 
+      - echo Building the Docker image... 
+      - docker build -t ${ecr_repo_name} . 
+      - docker tag ${ecr_repo_name}:latest $REPOSITORY_URI:${php_version}
+  post_build: 
+    commands: 
+      - echo Build completed on `date` 
+      - echo Pushing the Docker images... 
+      - docker push $REPOSITORY_URI:${php_version}
